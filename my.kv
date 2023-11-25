@@ -1,0 +1,61 @@
+<SettingsWidget>:
+    rows: 10
+    spacing: 50
+    padding: 20
+    canvas.before:
+        Color:
+            rgba: .9, .9, .9, 1
+        Rectangle:
+            # self here refers to the widget i.e FloatLayout
+            pos: self.pos
+            size: self.size
+    Label:
+        text: "ЛОГО"
+        font_size: 32
+        color: 0, 0, 0, 1
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: "Количество дронов"
+            font_size: 16
+            color: 0, 0, 0, 1
+        GridLayout:
+            cols: 3
+            Button: #remove_drone
+                text: "-1"
+                font_size: 16
+                background_color: "cyan"
+                on_press: root.remove_drone()
+            Label:
+                id: drone_amount
+                text:'0'
+                font_size: 24
+                color: 0, 0, 0, 1
+            Button: #add_drone
+                text: "+1"
+                font_size: 16
+                background_color: "cyan"
+                on_press: root.add_drone()
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: "Препятствия"
+            font_size: 16
+            color: 0, 0, 0, 1
+        GridLayout:
+            cols: 2
+            Button: 
+                text: "Удалить"
+                font_size: 16
+                background_color: "cyan"
+                on_press: root.remove_wall()
+            Button: 
+                text: "Добавить"
+                font_size: 16
+                background_color: "cyan"     
+                on_press: root.add_wall()
+    Button: 
+        text: "Добавить посылку"
+        font_size: 16
+        background_color: "cyan"
+        on_press: root.add_package()
