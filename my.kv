@@ -45,8 +45,9 @@
         GridLayout:
             cols: 2
             Button: 
-                text: "Удалить"
+                text: "Удалeние"
                 font_size: 16
+                id: deleting_walls
                 background_color: "cyan"
                 on_press: root.remove_wall()
             Button: 
@@ -54,8 +55,21 @@
                 font_size: 16
                 background_color: "cyan"     
                 on_press: root.add_wall()
-    Button: 
-        text: "Добавить посылку"
-        font_size: 16
-        background_color: "cyan"
-        on_press: root.add_package()
+
+    BoxLayout:
+        orientation: 'vertical'
+        Label:
+            text: "Посылки"
+            font_size: 16
+            color: 0, 0, 0, 1
+        Button: 
+            id: generate_package
+            text: "Генерировать"
+            font_size: 16
+            background_color: "cyan"
+            on_press: root.switch_generate()
+        Button: 
+            text: "Добавить"
+            font_size: 16
+            background_color: "cyan"
+            on_press: root.add_package()
