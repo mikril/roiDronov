@@ -53,7 +53,7 @@ def a_star(start, goal, obstacles):
             break
 
         for next in neighbors(current, obstacles):
-            new_cost = cost_so_far[current] + 1
+            new_cost = cost_so_far[current] + 20
             if next not in cost_so_far or new_cost < cost_so_far[next]:
                 cost_so_far[next] = new_cost
                 priority = new_cost + heuristic(goal, next)
