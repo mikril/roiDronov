@@ -15,6 +15,12 @@
         color: 0, 0, 0, 1
     BoxLayout:
         orientation: 'vertical'
+        Button: 
+            text: "Обслуживание"
+            font_size: 16
+            background_color: "cyan"
+            id: maintaining
+            on_press: root.maintain()
         Label:
             text: "Количество дронов"
             font_size: 16
@@ -38,23 +44,25 @@
                 on_press: root.add_drone()
     BoxLayout:
         orientation: 'vertical'
+        cols: 3
         Label:
             text: "Препятствия"
             font_size: 16
             color: 0, 0, 0, 1
-        GridLayout:
-            cols: 2
-            Button: 
-                text: "Удалeние"
-                font_size: 16
-                id: deleting_walls
-                background_color: "cyan"
-                on_press: root.remove_wall()
-            Button: 
-                text: "Добавить"
-                font_size: 16
-                background_color: "cyan"     
-                on_press: root.add_wall()
+        Button: 
+            text: "Удалeние"
+            font_size: 16
+            id: deleting_walls
+            disabled: True
+            background_color: "cyan"
+            on_press: root.remove_wall()
+        Button: 
+            text: "Добавить"
+            id: add_wall
+            font_size: 16
+            disabled: True
+            background_color: "cyan"     
+            on_press: root.add_wall()
 
     BoxLayout:
         orientation: 'vertical'
@@ -66,10 +74,13 @@
             id: generate_package
             text: "Генерировать"
             font_size: 16
+            disabled: False
             background_color: "cyan"
             on_press: root.switch_generate()
         Button: 
-            text: "Добавить"
+            text: "Создать"
             font_size: 16
             background_color: "cyan"
+            disabled: False
+            id: add_packages
             on_press: root.add_package()

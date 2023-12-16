@@ -7,19 +7,18 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.progressbar import ProgressBar
 from kivy.config import Config
 from kivy.clock import Clock
-from kivy.graphics import Rectangle, Color, Ellipse
-import random
+from kivy.graphics import Rectangle, Color, Ellipse, Line
+from kivy.core.window import Window
 from kivy.uix.widget import Widget
 import heapq
+import random
 
 Config.set("graphics", "resizable", 0)
 Config.set("graphics", "width", 1600)
 Config.set("graphics", "height", 900)
-
+Window.size = (1600, 900)
 
 def check_collision(obj1_x, obj1_y, obj1_width, obj1_height, obj2_x, obj2_y, obj2_width, obj2_height):
-
-
     obj1_left = min( obj1_x, obj1_x + obj1_width) # 10
     obj1_right = max( obj1_x, obj1_x + obj1_width) #20
     obj1_top = min( obj1_y, obj1_y + obj1_height) #10
@@ -33,9 +32,6 @@ def check_collision(obj1_x, obj1_y, obj1_width, obj1_height, obj2_x, obj2_y, obj
         return True
     return False
     
-
-
-
 def heuristic(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
@@ -69,7 +65,7 @@ def a_star(start, goal, obstacles):
 
 def neighbors(pos, obstacles):
     x, y = pos
-    possible_neighbors = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+    possible_neighbors = [(x+20, y), (x-20, y), (x, y+20), (x, y-20)]
     
     valid_neighbors = [neighbor for neighbor in possible_neighbors if not has_collision(neighbor, obstacles)]
     return valid_neighbors
@@ -93,34 +89,72 @@ def reconstruct_path(came_from, start, goal):
     path.reverse()
     return path
 
-
 class Storage(Widget):
     def __init__(self, id, drop_point_1, drop_point_2, color):
         super(Storage, self).__init__()
         self.id = id
         self.drop_point_1 = drop_point_1
+        self.drop_point_1 = list(map(lambda x: x // 20 * 20, drop_point_1))
+        self.drop_point_2 = list(map(lambda x: x // 20 * 20, drop_point_2))
         self.drop_point_2 = drop_point_2
         self.left_x = min(self.drop_point_1[0], self.drop_point_2[0])
         self.right_x = max(self.drop_point_1[0], self.drop_point_2[0])
         self.top_y = max(self.drop_point_1[1], self.drop_point_2[1])
         self.bot_y = min(self.drop_point_1[1], self.drop_point_2[1])
-        self.color = Color(*map(lambda x: x*0.7, color))
+        self.color = Color(*color)
         self.canvas.add(self.color)
         with self.canvas:
-            self.ellipse = Rectangle(pos=drop_point_1, size=(drop_point_2[0] - drop_point_1[0], drop_point_2[1] - drop_point_1[1]))
-            self.label = Label(text = str(self.id), pos=drop_point_1, color=(0, 0, 0, 1))
+            self.ellipse = Rectangle(pos=self.drop_point_1, size=(self.drop_point_2[0] - self.drop_point_1[0], self.drop_point_2[1] - self.drop_point_1[1]))
+            self.label = Label(text = str(self.id), pos=self.drop_point_1, color=(0, 0, 0, 1))
    
-        
-
 class SettingsWidget(GridLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.is_building = 0
         self.is_packaging = 0
         self.is_generating = 0
+        self.is_maintaining = 0
         self.is_deleteing = 0
         self.wall_pos = [(0, 0),(0, 0)]
         self.generatePackages = Clock.schedule_interval(self.generate_packages, 1)
+       
+        with self.canvas:
+            Color(1, 0, 0, 0.8)
+            self.pre_wall = Rectangle(pos=(-100, -100), size=(100, 100))
+         
+        Window.bind(mouse_pos=self.mouse_pos)
+
+    def mouse_pos(self, window, pos):
+        if self.is_building == 3:
+            left_x = (min(self.wall_pos[0][0], pos[0]) // 20) * 20
+            right_x = (max(self.wall_pos[0][0], pos[0]) // 20 + 1) * 20
+            top_y = (max(self.wall_pos[0][1], pos[1]) // 20 + 1) * 20
+            bot_y = (min(self.wall_pos[0][1], pos[1]) // 20) * 20
+            self.pre_wall.pos = (left_x, bot_y)
+            self.pre_wall.size = (abs(right_x - left_x), abs(top_y - bot_y))
+            
+    def reset_except_id(self, except_id):
+        if self.is_maintaining == 1:
+            if except_id != "deleting_walls":
+                self.is_deleteing = 0
+                self.ids.deleting_walls.text = "Удаление"
+                self.ids.deleting_walls.background_color = "cyan"
+                self.ids.deleting_walls.disabled = False
+                
+            if except_id != "add_wall":
+                self.is_building = 0
+                self.ids.add_wall.disabled = False
+                self.ids.add_wall.background_color = "cyan"
+        else:
+            if except_id != "is_packaging":
+                self.is_packaging = 0
+                self.ids.add_packages.disabled = False  
+                self.ids.generate_package.disabled = False
+                self.ids.add_wall.text = "Добавить"
+                self.ids.add_wall.background_color = "cyan"
+                self.ids.add_packages.text = "Создать"
+                self.ids.add_packages.background_color = "cyan"
+
 
     def remove_drone(self):
         if app.drone_amount >= 1:
@@ -128,19 +162,23 @@ class SettingsWidget(GridLayout):
         self.ids.drone_amount.text = str(app.drone_amount)
 
     def remove_wall(self):
-        if self.is_deleteing == 0:
-            self.is_deleteing = 1
-            self.ids.deleting_walls.text = "Перестать"
-        elif self.is_deleteing == 1:
-            self.is_deleteing = 0
-            self.ids.deleting_walls.text = "Удаление"
+        if self.is_maintaining == 1:
+            self.reset_except_id("deleting_walls")
+            if self.is_deleteing == 0:
+                self.is_deleteing = 1
+                self.ids.deleting_walls.text = "Перестать"
+                self.ids.deleting_walls.background_color = "white"
+            elif self.is_deleteing == 1:
+                self.is_deleteing = 0
+                self.ids.deleting_walls.text = "Удаление"
+                self.ids.deleting_walls.background_color = "cyan"
 
     def add_drone(self):
+        self.reset_except_id("drone_amount")
         app.field.add_drone()
         self.ids.drone_amount.text = str(app.drone_amount)
-
+        
     def on_touch_up(self, touch):
-        #TODO: отображать как будет выглядеть стена
         if self.is_deleteing == 1: 
             for wall in app.field.obstacles:   
                 if wall.left_x <= touch.x <= wall.right_x and wall.bot_y <= touch.y <= wall.top_y:
@@ -149,9 +187,9 @@ class SettingsWidget(GridLayout):
                     app.field.obstacles.remove(wall_to_remove)
                     wall_to_remove.__del__()   
 
-
         if self.is_building == 1:
             self.is_building = 2
+            self.ids.add_wall.background_color = "white"
 
         elif self.is_building == 2:
             self.wall_pos[0] = (touch.x, touch.y)
@@ -163,71 +201,124 @@ class SettingsWidget(GridLayout):
             app.field.add_wall(self.wall_pos[0], self.wall_pos[1])
             self.is_building = 0
             self.wall_pos = [(0, 0),(0, 0)]
-        
+            self.ids.add_wall.background_color = "cyan"
+            self.pre_wall.pos = (-100, -100)
+            self.pre_wall.size = (1, 1)
         if self.is_packaging == 1:
             self.is_packaging = 2 
 
         elif self.is_packaging == 2:
-            pos=(touch.x, touch.y)
+            pos=(int(touch.x // 20 * 20) , int(touch.y // 20 * 20 ))
             app.field.add_package(pos)
-            self.is_packaging = 0
+            self.is_packaging = 2
+            
+    def disable_deleting_block(self):
+        self.is_deleteing = 0
+        self.ids.deleting_walls.text = "Удаление"
+        self.ids.deleting_walls.background_color = "cyan"
+        self.ids.deleting_walls.disabled = True
+        
+        self.is_building = 0
+        self.ids.add_packages.text = "Создать"
+        self.ids.add_packages.background_color = "cyan"
+        self.ids.add_wall.disabled = True
+    
+    def disable_package_block(self):
+        self.is_generating = 0
+        self.ids.generate_package.disabled = True
+        self.ids.generate_package.text = "Генерировать"
+        self.ids.generate_package.background_color = "cyan"
 
+        self.is_packaging = 0
+        self.ids.add_packages.disabled = True
+        self.ids.add_packages.text = "Создать"
+        self.ids.add_packages.background_color = "cyan"
+        
+    def maintain(self):
+        if self.is_maintaining == 0:
+            self.is_maintaining = 1
+            self.reset_except_id("")
+            self.ids.maintaining.text = "Прекратить"
+            self.ids.maintaining.background_color = "white"
 
+            self.disable_package_block()
+
+        elif self.is_maintaining == 1:
+            self.is_maintaining = 0
+            self.reset_except_id("")
+            self.ids.maintaining.text = "Обслуживание"
+            self.ids.maintaining.background_color = "cyan"
+
+            self.disable_deleting_block()
+           
 
     def add_wall(self):
-        self.is_building = 1
+        if self.is_maintaining == 1:
+            self.reset_except_id("add_wall")
+            self.is_building = 1
 
     def generate_packages(self, dt):
-        if self.is_generating == 1:
+        if self.is_generating == 1 and self.is_maintaining == 0:
             if len(app.field.drones) * 1.5 > len(app.field.packages):
                 x = self.find_available_pos()
-                print(x)
                 app.field.add_package(x)
 
     def find_available_pos(self):
         flag = True
         while flag:
             flag = False
-            pos_to_spawn = (random.randint(100, 1300), random.randint(100, 800))
+            pos_to_spawn = (random.randint(100 // 20, 1300 // 20) * 20 - 10, random.randint(100 // 20, 800 // 20) * 20 - 10) 
 
-            if app.field.station.pos[0] - 10 <= pos_to_spawn[0] <= app.field.station.pos[0] + 200 + 10 and app.field.station.pos[1] - 10 <= pos_to_spawn[1] <= app.field.station.pos[1]  + 100 + 10:
+            if app.field.station.pos[0]  <= pos_to_spawn[0] <= app.field.station.pos[0] + 200 and app.field.station.pos[1]  <= pos_to_spawn[1] <= app.field.station.pos[1]  + 100 + 10:
                 flag = True
             for wall in app.field.obstacles:
-                if wall.left_x - 10 <= pos_to_spawn[0] <= wall.right_x + 10 and wall.bot_y - 10 <= pos_to_spawn[1] <= wall.top_y + 10:
+                if wall.left_x  <= pos_to_spawn[0] <= wall.right_x  and wall.bot_y  <= pos_to_spawn[1] <= wall.top_y :
                     flag = True
                     break
             for storage in app.field.storages:
-                if storage.left_x - 10 <= pos_to_spawn[0] <= storage.right_x + 10 and storage.bot_y - 10 <= pos_to_spawn[1] <= storage.top_y + 10:
+                if storage.left_x  <= pos_to_spawn[0] <= storage.right_x  and storage.bot_y  <= pos_to_spawn[1] <= storage.top_y :
                     flag = True
                     break
             if not flag:
-                return pos_to_spawn
+                return (int(pos_to_spawn[0]-10), int(pos_to_spawn[1]-10))
 
     def add_package(self):
-        self.is_packaging = 1
+        if self.is_maintaining == 0:
+            self.reset_except_id("is_packaging")
+            if self.is_packaging == 1 or self.is_packaging == 2:
+                self.is_packaging = 0
+                self.ids.add_packages.text = "Создать"
+                self.ids.add_packages.background_color = "cyan"
+            else:
+                self.is_packaging = 1
+                self.ids.add_packages.text = "Перестать"
+                self.ids.add_packages.background_color = "white"
+
 
     def switch_generate(self):
-        if self.is_generating == 0:
-            self.is_generating = 1
-            self.ids.generate_package.text = "Перестать"
-        elif self.is_generating == 1:
-            self.is_generating = 0
-            self.ids.generate_package.text = "Генерировать"
+        if self.is_maintaining == 0:
+            if self.is_generating == 0:
+                self.is_generating = 1
+                self.ids.generate_package.text = "Перестать"
+                self.ids.generate_package.background_color = "white"
+            elif self.is_generating == 1:
+                self.is_generating = 0
+                self.ids.generate_package.text = "Генерировать"
+                self.ids.generate_package.background_color = "cyan"
 
 class Wall(Widget):
     def __init__(self, first_point, second_point):
         super(Wall, self).__init__()
-        self.first_point = first_point
-        self.second_point = second_point
         self.color = Color(1, 0, 0, 1)
         self.canvas.add(self.color)
-        self.left_x = min(self.first_point[0], self.second_point[0])
-        self.right_x = max(self.first_point[0], self.second_point[0])
-        self.top_y = max(self.first_point[1], self.second_point[1])
-        self.bot_y = min(self.first_point[1], self.second_point[1])
-        self.wallSize=(second_point[0] - first_point[0], second_point[1] - first_point[1])
+        self.left_x = (min(first_point[0], second_point[0]) // 20) * 20
+        self.right_x = (max(first_point[0], second_point[0]) // 20 + 1) * 20
+        self.top_y = (max(first_point[1], second_point[1]) // 20 + 1) * 20
+        self.bot_y = (min(first_point[1], second_point[1]) // 20) * 20
+        self.first_point = (self.left_x, self.bot_y)
+        self.wallSize=(abs(self.right_x - self.left_x), abs(self.top_y - self.bot_y))
         with self.canvas:
-            self.ellipse = Rectangle(pos=first_point, size=self.wallSize)
+            self.ellipse = Rectangle(pos=(self.left_x, self.bot_y), size=self.wallSize)
         
     def __del__(self):
         del self
@@ -236,31 +327,30 @@ class Station(Widget):
     def __init__(self):
         super(Station, self).__init__()
         self.color = Color(0.1, 0.5, 0.2, 1)
-        self.pos = (600, 450)
+        self.pos = (600, 400)
         self.size = (200, 100)
         self.canvas.add(self.color)
         with self.canvas:
             self.rect = Rectangle(pos=self.pos, size=self.size, Color=self.color)
        
-
 class Package(Widget):
     def __init__(self, pos):
         super(Package, self).__init__()
         self.pos = pos
+        
         self.storage = random.randint(0,3)
         self.life_time = 0
         self.weight = str(random.randint(1,10))
 
         self.colors = [(0, 0, 0, 1), (1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
         self.color = Color(self.colors[self.storage])
-
         self.event=Clock.schedule_interval(self.update_life_time, 1)
-
+    
         with self.canvas:
             Color(*map(lambda x: x*0.7, self.colors[self.storage]))
-            self.ellipse = Rectangle(pos=map(lambda x: x-10, pos), size=(20,20))
-            self.label_weight = Label(text=self.weight, pos=(self.pos[0]-50, self.pos[1]-50), color=(0, 0, 0, 1))
-            self.label_life_time = Label(text='0:00', pos=(self.pos[0]-50, self.pos[1]-30), color=(0, 0, 0, 1))
+            self.ellipse = Rectangle(pos=self.pos, size=(20,20))
+            self.label_weight = Label(text=self.weight, pos=(self.pos[0]-40, self.pos[1]-40), color=(0, 0, 0, 1))
+            self.label_life_time = Label(text='0:00', pos=(self.pos[0]-40, self.pos[1]-20), color=(0, 0, 0, 1))
 
     def update_life_time(self, dt):
         minutes = self.life_time // 60
@@ -285,7 +375,7 @@ class Drone(Widget):
         self.field_size = field_size
         self.packages=packages
         self.station=station
-        self.pos = (700, 500)
+        self.pos = (700, 440)
         self.indicator_power = 100
         self.gruz=None
         self.color = Color(0, 0, 0, 1)
@@ -293,18 +383,23 @@ class Drone(Widget):
         self.obstacles = obstacles
         self.current_step=0
         self.package_weight = 1
-        start = (self.pos)
-        goal = (50,50)
-        self.path = a_star(start, goal, self.obstacles)
-        # Изменил создание Ellipse через инструкции рисования
+        self.package_pathes=self.get_package_pathes()
+        print(self.package_pathes)
         with self.canvas:
             self.ellipse = Ellipse(pos=self.pos, size=self.sizeDron)
             self.charge_percent = ProgressBar(max=100, size=(30, 50), pos=(self.pos[0], self.pos[1] + 10), value=self.indicator_power)
             self.percent_charge = Label(text=str(self.indicator_power), pos=(self.pos[0] - 65, self.pos[1] - 13), color=(0,0,0))
         self.event = Clock.schedule_interval(self.update, 1.0/100)
 
+    def get_package_pathes(self):
+        pathes=[]
+        for package in self.packages:
+            pathes.append(a_star(self.pos, list(package.pos), self.obstacles))
+        return pathes
+            
+            
     def update(self, dt):
-        if self.indicator_power>0 and self.current_step<len(self.path):
+        if self.indicator_power>0 and self.current_step<len(min(self.package_pathes, key=len)):
             self.move(self.current_step)
         
         self.ellipse.pos = self.pos
@@ -316,21 +411,20 @@ class Drone(Widget):
 
         if (self.gruz != None):
             self.gruz.update_position(self.pos)
-        self.current_step += int(2/(self.package_weight/5))
-        print( int(2/(self.package_weight/5)))
+        self.current_step += 1
         
     def power(self):
         if check_collision(self.station.pos[0], self.station.pos[1], 200, 100, self.pos[0], self.pos[1], 20, 20):
             if self.indicator_power < 111:
-                self.indicator_power += 0.05     
+                self.indicator_power += 0.5     
 
     def __del__(self):
         Clock.unschedule(self.event)
         del self
 
     def move(self,current_step):
-        direction_x = self.path[current_step][0]
-        direction_y = self.path[current_step][1]
+        direction_x = min(self.package_pathes, key=len)[current_step][0]
+        direction_y = min(self.package_pathes, key=len)[current_step][1]
 
         new_pos = (direction_x, direction_y)
         x_condition = 0 <= new_pos[0]+self.sizeDron[0] <= self.field_size[0]
@@ -342,14 +436,13 @@ class Drone(Widget):
                     self.package_weight = int(self.gruz.weight) 
                     self.gruz.start_move()
                     
-
         if x_condition and y_condition:
             self.pos = new_pos
         else:
             pass
         
         if self.indicator_power > 0:
-            self.indicator_power -= 0.05
+            self.indicator_power -= 0.5
         
 
 class Field(FloatLayout):
@@ -358,6 +451,7 @@ class Field(FloatLayout):
         self.sizeField = sizeField
         self.rect = Rectangle(pos=self.pos, size=self.sizeField)
         self.canvas.add(self.rect)
+        self.create_field()
         self.size = sizeField
         self.drones = []
         self.packages = []
@@ -365,27 +459,36 @@ class Field(FloatLayout):
         self.station = Station()
         self.add_widget(self.station)
         self.obstacles=[]
-
-        self.storages = [Storage(0, (0, 0), (100, 100), (0, 0, 0, 1)),
-                        Storage(1, (1300, 0), (1400, 100), (1, 0, 0, 1)),
-                        Storage(2, (1300, 800), (1400, 900), (0, 1, 0, 1)),
-                        Storage(3, (0, 800), (100, 900), (0, 0, 1, 1))]
+        self.storages = [Storage(0, (0, 0), (100, 100), (54/255, 54/255, 54/255, 1)),
+                                    Storage(1, (1300, 0), (1400, 100), (255/255, 74/255, 80/255, 1)),
+                                    Storage(2, (1300, 800), (1400, 900), (73/255, 191/255, 102/255, 1)),
+                                    Storage(3, (0, 800), (100, 900), (96/255, 145/255, 209/255, 1))]
+        
         for storage in self.storages:
             self.add_widget(storage)
-        
+
+    def mouse_pos(self, window, pos):
+        self.label.text = str(pos)
     def add_drone(self):
         drone_to_add = Drone(sizeDron=(20, 20), field_size=self.size, packages=self.packages, obstacles=self.obstacles, station=self.station)
         self.drones.append(drone_to_add)
         self.add_widget(drone_to_add)
         app.drone_amount += 1
-    
+
+    def create_field(self):
+            self.color = Color(0, 0, 0, 1)
+            self.canvas.add(self.color)
+            for line in range(20, 1400, 20):
+                with self.canvas:
+                    self.line_vertical = Line(points=[0, line, 1400, line], width=1)
+                    self.line_horizontal = Line(points=[line, 0, line, 900], width=1)
+
     def remove_drone(self):
         if app.drone_amount >= 1:   
             app.drone_amount -= 1     
             drone_to_kill = self.drones.pop()
             self.remove_widget(drone_to_kill)  
             drone_to_kill.__del__()    
-            print(self.drones)
 
     def add_package(self, pos):
         package_to_add = Package(pos)
@@ -397,23 +500,17 @@ class Field(FloatLayout):
         self.add_widget(wall_to_add)
         self.obstacles.append(wall_to_add)
 
-
 class myApp(App):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.drone_amount = 0
         self.field = Field((1400, 900))
-        
     
     def build(self):
-        
         boxLayout = BoxLayout(orientation='horizontal')
         boxLayout.add_widget(self.field)
         boxLayout.add_widget(SettingsWidget())
         return boxLayout
-    
-    
 
 if __name__ == "__main__":
     app = myApp()
