@@ -4,83 +4,125 @@
     padding: 20
     canvas.before:
         Color:
-            rgba: .9, .9, .9, 1
+            rgba: 63/255, 40/255, 50/255, 1
         Rectangle:
-            # self here refers to the widget i.e FloatLayout
             pos: self.pos
             size: self.size
+        Color:
+            rgba: 228/255, 166/255, 114/255, 1
+        Rectangle:
+            pos: self.pos[0] + 4, self.pos[1] + 4
+            size: self.size[0] - 8, self.size[1] - 8
+        Color:
+            rgba: 234/255, 212/255, 170/255, 1
+        Rectangle:
+            pos: self.pos[0] + 8, self.pos[1] + 8
+            size: self.size[0] - 16, self.size[1] - 16
     Label:
-        text: "ЛОГО"
+        font_name: './font.otf'
+        text: "Ghost\nCleaners"
         font_size: 32
         color: 0, 0, 0, 1
     BoxLayout:
         orientation: 'vertical'
         Button: 
+            font_name: './font.otf'
             text: "Обслуживание"
             font_size: 16
-            background_color: "cyan"
+            background_normal: "./images/buttonNormal.png"
+            background_down: "./images/buttonDown.png"
+            background_disabled_normal: "./images/buttonDisabled.png"
             id: maintaining
+            background_color: "cyan"
             on_press: root.maintain()
         Label:
-            text: "Количество дронов"
+            font_name: './font.otf'
+            text: "Призраки"
             font_size: 16
             color: 0, 0, 0, 1
         GridLayout:
             cols: 3
             Button: #remove_drone
+                font_name: './font.otf'
                 text: "-1"
                 font_size: 16
+                background_normal: "./images/buttonNormal.png"
                 background_color: "cyan"
+                background_down: "./images/buttonDown.png"
+                background_disabled_normal: "./images/buttonDisabled.png"
                 on_press: root.remove_drone()
             Label:
                 id: drone_amount
+                font_name: './font.otf'
                 text:'0'
-                font_size: 24
+                font_size: 16
                 color: 0, 0, 0, 1
             Button: #add_drone
+                font_name: './font.otf'
                 text: "+1"
                 font_size: 16
+                background_normal: "./images/buttonNormal.png"
                 background_color: "cyan"
+                background_down: "./images/buttonDown.png"
+                background_disabled_normal: "./images/buttonDisabled.png"
                 on_press: root.add_drone()
     BoxLayout:
         orientation: 'vertical'
         cols: 3
         Label:
+            font_name: './font.otf'
             text: "Препятствия"
             font_size: 16
             color: 0, 0, 0, 1
         Button: 
+            font_name: './font.otf'
             text: "Удалeние"
             font_size: 16
             id: deleting_walls
             disabled: True
+            background_normal: "./images/buttonNormal.png"
             background_color: "cyan"
+            background_down: "./images/buttonDown.png"
+            background_disabled_normal: "./images/buttonDisabled.png"
             on_press: root.remove_wall()
         Button: 
+            font_name: './font.otf'
             text: "Добавить"
             id: add_wall
             font_size: 16
             disabled: True
-            background_color: "cyan"     
+            background_normal: "./images/buttonNormal.png"
+            background_color: "cyan"
+            background_down: "./images/buttonDown.png"
+            background_disabled_normal: "./images/buttonDisabled.png"   
             on_press: root.add_wall()
 
     BoxLayout:
         orientation: 'vertical'
         Label:
+            font_name: './font.otf'
             text: "Посылки"
             font_size: 16
             color: 0, 0, 0, 1
         Button: 
             id: generate_package
+            font_name: './font.otf'
             text: "Генерировать"
             font_size: 16
             disabled: False
+            background_normal: "./images/buttonNormal.png"
             background_color: "cyan"
+            background_down: "./images/buttonDown.png"
+            background_disabled_normal: "./images/buttonDisabled.png"
             on_press: root.switch_generate()
         Button: 
+            font_name: './font.otf'
             text: "Создать"
             font_size: 16
+            background_normal: "./images/buttonNormal.png"
             background_color: "cyan"
+            background_down: "./images/buttonDown.png"
+            background_disabled_normal: "./images/buttonDisabled.png"
             disabled: False
             id: add_packages
             on_press: root.add_package()
