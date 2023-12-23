@@ -356,13 +356,13 @@ class Package(Widget):
         self.is_employed = False 
         self.storage = random.randint(0,3)
         self.life_time = 0
-        self.weight = random.randint(1,10)
+        self.weight = random.randint(2,4)
         self.event=Clock.schedule_interval(self.update_life_time, 1)
     
         with self.canvas:
             texture = Image(f"./images/package{self.storage}{random.randint(0, 1)}.png").texture
             self.ellipse = Rectangle(texture=texture, pos=self.pos, size=(20,20))
-            self.label_weight = Label(text=f"x{self.weight + 1}", pos=(self.pos[0]-40, self.pos[1]-60), color=(0, 0, 0, 1))
+            self.label_weight = Label(text=f"x{self.weight - 1}", pos=(self.pos[0]-40, self.pos[1]-60), color=(0, 0, 0, 1))
             self.label_life_time = Label(text='0:00', pos=(self.pos[0]-40, self.pos[1]-20), color=(0, 0, 0, 1))
 
     def update_life_time(self, dt):
@@ -375,6 +375,9 @@ class Package(Widget):
         self.pos = new_pos
         self.ellipse.pos = self.pos
         self.label_weight.pos = (self.pos[0]-40, self.pos[1]-60)
+    def __del__(self):
+        Clock.unschedule(self.event)
+        self.parent.remove_widget(self)
     def start_move(self):
         self.remove_widget(self.label_life_time)
         self.label_life_time.text = ''
@@ -390,15 +393,15 @@ class Drone(Widget):
         self.station=station
         self.pos = (700, 440)
         self.indicator_power = 100
-        self.waste_power = 0.5
+        self.waste_power = 0.2
         self.choose_package=None
         self.catch_package=False
         self.obstacles = obstacles
         self.current_step = 0
-        self.package_weight = 1
-        
+        self.charged=True
         self.packages_count=len(self.packages)
-        
+        self.wasty=1
+        self.step=1
         self.drone_path=[]
         self.get_path_pakage()
         with self.canvas:
@@ -414,63 +417,85 @@ class Drone(Widget):
             if not(package.is_employed):
                 storage=Storage(package.storage)
                 path = a_star(self.pos, list(package.pos), self.obstacles) + a_star(list(package.pos),storage.enter, self.obstacles)
-                if self.indicator_power - len(path + a_star(storage.enter, ((self.station.pos[0] + self.station.station_size[0])/2, (self.station.pos[1] + self.station.station_size[1])/2-10), self.obstacles)) * self.waste_power > 0:  
+                if self.indicator_power - len(a_star(self.pos, list(package.pos), self.obstacles) + a_star(list(package.pos),storage.enter, self.obstacles)*package.weight + a_star(storage.enter, ((self.station.pos[0] + self.station.station_size[0]/2), (self.station.pos[1] + self.station.station_size[1]/2)-10), self.obstacles)) * self.waste_power  > 0:  
                     if near_package == (None, None) or len(path)<len(near_package[1]):
                         near_package=(package,path)
                     
         if near_package != (None, None):
             self.choose_package=near_package[0]
+            self.wasty=near_package[0].weight
             self.choose_package.is_employed=True
             self.drone_path = near_package[1]
 
     def update(self, dt):
-        
+       
         if (self.packages_count!=len(self.packages) and self.choose_package==None):
             self.get_path_pakage()
             self.packages_count=len(self.packages)
-        if  self.current_step<len(self.drone_path):
+        if  self.current_step<len(self.drone_path) and  self.charged:
             self.move(self.current_step,self.drone_path)
-            self.current_step += 1
+            self.current_step += self.step
+            
         
         self.ellipse.pos = self.pos
+        
+        
+
+        if self.catch_package:
+            self.choose_package.update_position(self.pos)
+        if int(self.current_step)==len(self.drone_path):
+            self.wasty=1
+            self.step=1
+            if  self.choose_package!=None:
+                self.packages.remove(self.choose_package)
+                self.choose_package.__del__()   
+                self.choose_package=None
+            self.drone_path = []
+            self.current_step=0
+            self.catch_package=False
+            self.get_path_pakage()
+
+            power_path=len(a_star(self.pos, ((self.station.pos[0] + self.station.station_size[0]/2), (self.station.pos[1] + self.station.station_size[1]/2)-10), self.obstacles)) * self.waste_power
+            if self.indicator_power - (power_path + power_path*5.75)<0:
+                self.drone_path= a_star(self.pos, ((self.station.pos[0] + self.station.station_size[0]/2), (self.station.pos[1] + self.station.station_size[1]/2)-10), self.obstacles)
+        self.power()
         self.charge_percent.pos = (self.pos[0], self.pos[1] + 10)
         self.charge_percent.value = self.indicator_power
         self.percent_charge.pos = (self.pos[0] - 65, self.pos[1] - 13)
         self.percent_charge.text = str(int(self.indicator_power))
-        self.power()
-
-        if self.catch_package:
-            self.choose_package.update_position(self.pos)
+            
            
     def power(self):
-        if check_collision(self.station.pos[0], self.station.pos[1], 200, 100, self.pos[0], self.pos[1], self.sizeDron[0], self.sizeDron[1]):
+        if self.catch_package==False and self.current_step==0 and check_collision(self.station.pos[0], self.station.pos[1], 200, 100, self.pos[0], self.pos[1], self.sizeDron[0], self.sizeDron[1]):
             if self.indicator_power < 100:
-                self.indicator_power += self.waste_power    
+                self.charged=False
+                self.indicator_power += self.waste_power*5    
+            else:
+                self.charged=True
 
     def __del__(self):
         Clock.unschedule(self.event)
         del self
 
     def move(self,current_step,nearest_path):
-        direction_x = nearest_path[current_step][0]
-        direction_y = nearest_path[current_step][1]
+        direction_x = nearest_path[int(current_step)][0]
+        direction_y = nearest_path[int(current_step)][1]
 
         new_pos = (direction_x, direction_y)
-        x_condition = 0 <= new_pos[0]+self.sizeDron[0] <= self.field_size[0]
-        y_condition = 0 <= new_pos[1]+self.sizeDron[1] <= self.field_size[1]
         
-        if check_collision(new_pos[0], new_pos[1], self.sizeDron[0], self.sizeDron[1], self.choose_package.pos[0], self.choose_package.pos[1], 20, 20):
+        if self.choose_package!= None and check_collision(new_pos[0], new_pos[1], self.sizeDron[0], self.sizeDron[1], self.choose_package.pos[0], self.choose_package.pos[1], 20, 20):
             self.catch_package = True
-            self.package_weight = int(self.choose_package.weight) 
+            self.step = 1/self.wasty
+            
             self.choose_package.start_move()
-                    
-        if x_condition and y_condition:
-            self.pos = new_pos
-        else:
-            pass
+                
+      
         
         if self.indicator_power > 0:
             self.indicator_power -= self.waste_power
+        self.pos = new_pos 
+        
+            
         
 
 class Field(FloatLayout):
