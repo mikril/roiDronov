@@ -49,9 +49,9 @@ def a_star(start, end, obstacles):
     end = tuple(end)
     open_set.put((0, count, start))
     came_from = {}
-    g_score = {(x, y): float("inf") for x in range(0, 1401, 20) for y in range(0, 901, 20)}
+    g_score = {(x, y): float("inf") for x in range(0, 1381, 20) for y in range(0, 881, 20)}
     g_score[start] = 0
-    f_score = {(x, y): float("inf") for x in range(0, 1401, 20) for y in range(0, 901, 20)}
+    f_score = {(x, y): float("inf") for x in range(0, 1381, 20) for y in range(0, 881, 20)}
     f_score[start] = heuristic(start, end)
     
     open_set_hash = {start}
@@ -66,16 +66,16 @@ def a_star(start, end, obstacles):
 
         for neighbor in get_neighbors(current, obstacles):
             temp_g_score = g_score[current] + 20
-
-            if temp_g_score < g_score[neighbor]:
-                came_from[neighbor] = current
-                g_score[neighbor] = temp_g_score
-                f_score[neighbor] = temp_g_score + heuristic(neighbor, end)
-                
-                if neighbor not in open_set_hash:
-                    count += 1
-                    open_set.put((f_score[neighbor], count, neighbor))
-                    open_set_hash.add(neighbor)
+            if neighbor in g_score:
+                if temp_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = temp_g_score
+                    f_score[neighbor] = temp_g_score + heuristic(neighbor, end)
+                    
+                    if neighbor not in open_set_hash:
+                        count += 1
+                        open_set.put((f_score[neighbor], count, neighbor))
+                        open_set_hash.add(neighbor)
 
     return []
 
