@@ -138,6 +138,11 @@ class SettingsWidget(GridLayout):
             self.pre_wall = Rectangle(pos=(-100, -100), size=(100, 100))
             
         Window.bind(mouse_pos=self.mouse_pos)
+        self.event = Clock.schedule_interval(self.settings_change, 1.0/10)
+        
+    def settings_change(self, dt):
+        if app.field.packages == [] and self.is_maintaining==1 and self.ids.deleting_walls.disabled == True:
+            self.reset_except_id("")
 
     def mouse_pos(self, window, pos):
         if self.is_building == 3:
@@ -190,6 +195,7 @@ class SettingsWidget(GridLayout):
 
     def add_drone(self):
         self.reset_except_id("drone_amount")
+        self.disable_deleting_block()
         app.field.add_drone()
         self.ids.drone_amount.text = str(app.drone_amount)
         
@@ -213,7 +219,15 @@ class SettingsWidget(GridLayout):
         elif self.is_building == 3:
             self.wall_pos[1] = (touch.x, touch.y)
             self.is_building = 3
-            app.field.add_wall(self.wall_pos[0], self.wall_pos[1])
+            wall_width = abs(self.wall_pos[0][0]-self.wall_pos[1][0])
+            wall_height = abs(self.wall_pos[0][1]-self.wall_pos[1][1])
+            flag = False
+            for storage in app.field.storages:
+                if check_collision(min(self.wall_pos[0][0], self.wall_pos[1][0]), min(self.wall_pos[0][1], self.wall_pos[1][1]), wall_width, wall_height, storage.left_x, storage.bot_y, storage.right_x-storage.left_x, storage.top_y-storage.bot_y):
+                    flag = True
+                    break
+            if not flag and not check_collision(min(self.wall_pos[0][0], self.wall_pos[1][0]), min(self.wall_pos[0][1], self.wall_pos[1][1]), wall_width, wall_height, 600, 400, 200, 100):
+                app.field.add_wall(self.wall_pos[0], self.wall_pos[1])
             self.is_building = 0
             self.wall_pos = [(0, 0),(0, 0)]
             self.ids.add_wall.background_color = "cyan"
@@ -224,7 +238,22 @@ class SettingsWidget(GridLayout):
 
         elif self.is_packaging == 2:
             pos=(int(touch.x // 20 * 20) , int(touch.y // 20 * 20 ))
-            app.field.add_package(pos)
+            flag = False
+
+            if app.field.station.pos[0]  <= pos[0] <= app.field.station.pos[0] + 200 and app.field.station.pos[1]  <= pos[1] <= app.field.station.pos[1]  + 100 + 10:
+                flag = True
+            for wall in app.field.obstacles:
+                if wall.left_x  <= pos[0] <= wall.right_x  and wall.bot_y  <= pos[1] <= wall.top_y :
+                    flag = True
+                    break
+            for storage in app.field.storages:
+                if storage.left_x  <= pos[0] <= storage.right_x  and storage.bot_y  <= pos[1] <= storage.top_y :
+                    flag = True
+                    break
+            if not flag:
+                app.field.add_package(pos)
+            
+            
             self.is_packaging = 2
             
     def disable_deleting_block(self):
@@ -257,18 +286,21 @@ class SettingsWidget(GridLayout):
             self.ids.maintaining.background_color = (0, 0, 0, 0.8)
 
             self.disable_package_block()
+            self.disable_deleting_block()
+            
+            
 
         elif self.is_maintaining == 1:
             self.is_maintaining = 0
             self.reset_except_id("")
             self.ids.maintaining.text = "Обслуживание"
             self.ids.maintaining.background_color = "cyan"
-
+            
             self.disable_deleting_block()
            
 
     def add_wall(self):
-        if self.is_maintaining == 1:
+        if self.is_maintaining == 1 :
             self.reset_except_id("add_wall")
             self.is_building = 1
 
@@ -430,8 +462,8 @@ class Drone(Widget):
             self.drone_path = near_package[1]
 
     def update(self, dt):
-       
-        if (self.packages_count!=len(self.packages) and self.choose_package==None):
+        
+        if (self.packages_count != len(self.packages) and self.choose_package==None):
             self.get_path_pakage()
             self.packages_count=len(self.packages)
         if  self.current_step<len(self.drone_path) and  self.charged:
@@ -455,11 +487,13 @@ class Drone(Widget):
             self.drone_path = []
             self.current_step=0
             self.catch_package=False
-            self.get_path_pakage()
+            
 
             power_path=len(a_star(self.pos, ((self.station.pos[0] + self.station.station_size[0]/2), (self.station.pos[1] + self.station.station_size[1]/2)-10), self.obstacles)) * self.waste_power
             if self.indicator_power - (power_path + power_path*5.75)<0:
                 self.drone_path= a_star(self.pos, ((self.station.pos[0] + self.station.station_size[0]/2), (self.station.pos[1] + self.station.station_size[1]/2)-10), self.obstacles)
+            else:
+                self.get_path_pakage()
         self.power()
         self.charge_percent.pos = (self.pos[0], self.pos[1] + 10)
         self.charge_percent.value = self.indicator_power
@@ -538,8 +572,10 @@ class Field(FloatLayout):
     def remove_drone(self):
         if app.drone_amount >= 1:   
             app.drone_amount -= 1     
+            print(self.drones)
             drone_to_kill = self.drones.pop()
-            drone_to_kill.choose_package.is_employed=False
+            if  drone_to_kill.choose_package!=None:
+                drone_to_kill.choose_package.is_employed=False
             self.remove_widget(drone_to_kill)  
             drone_to_kill.__del__()    
 
@@ -558,12 +594,13 @@ class myApp(App):
         super().__init__(**kwargs)
         self.drone_amount = 0
         self.field = Field((1400, 900))
+        self.boxLayout = BoxLayout()
+       
     
     def build(self):
-        boxLayout = BoxLayout(orientation='horizontal')
-        boxLayout.add_widget(self.field)
-        boxLayout.add_widget(SettingsWidget())
-        return boxLayout
+        self.boxLayout.add_widget(self.field)
+        self.boxLayout.add_widget( SettingsWidget())
+        return self.boxLayout
 
 if __name__ == "__main__":
     app = myApp()
