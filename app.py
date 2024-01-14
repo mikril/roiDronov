@@ -81,8 +81,10 @@ def a_star(start, end, obstacles):
 
 def get_neighbors(pos, obstacles):
     x, y = pos
-    possible_neighbors = [(x + dx, y + dy) for dx, dy in [(0, 20), (20, 0), (0, -20), (-20, 0),(20, 20), (-20, -20), (20, -20), (-20, 20)]]
-    return [neighbor for neighbor in possible_neighbors if not has_collision(neighbor, obstacles)]
+    possible_neighbors = [(x + dx, y + dy) for dx, dy in [(0, 20), (20, 0), (0, -20), (-20, 0)]]
+    possible_neighbors_diagonals = [(x + dx, y + dy) for dx, dy in [(20, 20), (-20, -20), (20, -20), (-20, 20)]]
+    indexes_neighbors=[(0,1),(2,3),(1,2),(0,3)]
+    return [neighbor for neighbor in possible_neighbors if not has_collision(neighbor, obstacles)] + [possible_neighbors_diagonals[neighborIND] for neighborIND in range(len(possible_neighbors_diagonals)) if not has_collision(possible_neighbors_diagonals[neighborIND], obstacles) and not has_collision(possible_neighbors[indexes_neighbors[neighborIND][0]], obstacles) and not has_collision(possible_neighbors[indexes_neighbors[neighborIND][1]], obstacles)]
 
 def has_collision(pos, obstacles):
     x, y = pos
@@ -537,6 +539,7 @@ class Field(FloatLayout):
         if app.drone_amount >= 1:   
             app.drone_amount -= 1     
             drone_to_kill = self.drones.pop()
+            drone_to_kill.choose_package.is_employed=False
             self.remove_widget(drone_to_kill)  
             drone_to_kill.__del__()    
 
